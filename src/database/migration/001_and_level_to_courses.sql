@@ -1,0 +1,3 @@
+ALTER TABLE courses
+  ADD COLUMN IF NOT EXISTS level VARCHAR(20) DEFAULT '100'
+    CHECK (level IN ('100', '200', '300', '400'));
