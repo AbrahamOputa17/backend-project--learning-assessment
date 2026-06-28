@@ -10,7 +10,16 @@ const logger = require('./utils/logger');
 const app = express();
 
 // Middleware
-app.use(cors(config.cors));
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://fontend-project-five.vercel.app',
+  ],
+  credentials: true,
+}));
+
+// ✅ ADD THIS LINE
+app.options('*', cors());
 app.use(morgan('combined'));
 app.use(express.json());
 
