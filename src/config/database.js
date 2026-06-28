@@ -2,7 +2,9 @@ const { Pool } = require('pg');
 const config = require('./index');
 const logger = require('../utils/logger');
 
-const useSsl = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+const useSsl = process.env.DATABASE_URL
+  ? process.env.DB_SSL !== 'false'
+  : process.env.NODE_ENV === 'production' || process.env.VERCEL;
 
 const poolConfig = process.env.DATABASE_URL
   ? {
