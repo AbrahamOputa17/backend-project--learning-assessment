@@ -9,16 +9,18 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+const corsOptions = {
+  origin: config.cors.origin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
 
-app.use(cors({
-  origin: 'https://fontend-project-five.vercel.app',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(cors(corsOptions));
 
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 app.use(morgan('combined'));
 app.use(express.json());
 
@@ -43,4 +45,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (require.main === module && !process.env.VERCEL) {
+  startServer();
+}
+
+module.exports = app;

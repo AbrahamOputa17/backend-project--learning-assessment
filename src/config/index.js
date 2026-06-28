@@ -1,5 +1,16 @@
 require('dotenv').config();
 
+const defaultCorsOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://fontend-project-five.vercel.app',
+]
+
+const corsOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigins.join(','))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
 const config = {
   port: parseInt(process.env.BACKEND_PORT, 10) || 5000,
   env: process.env.NODE_ENV || 'development',
@@ -15,7 +26,7 @@ const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOrigins,
   },
   google: {
     apiKey: process.env.GOOGLE_API_KEY || '',
