@@ -2,12 +2,24 @@ const { Pool } = require('pg');
 const config = require('./index');
 const logger = require('../utils/logger');
 
+const useSsl = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+    }
+  : {
+      host: config.db.host,
+      port: config.db.port,
+      database: config.db.name,
+      user: config.db.user,
+      password: config.db.password,
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+    };
+
 const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.name,
-  user: config.db.user,
-  password: config.db.password,
+  ...poolConfig,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
