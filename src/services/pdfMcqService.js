@@ -11,7 +11,9 @@ const AppError = require('../utils/AppError');
 async function extractPdfText(pdfBuffer) {
   try {
     const { extractText } = await import('unpdf');
-    const uint8 = pdfBuffer instanceof Uint8Array ? pdfBuffer : new Uint8Array(pdfBuffer);
+    // Buffer subclasses Uint8Array, but unpdf requires a plain Uint8Array.
+    // Uint8Array.from() creates a true Uint8Array copy, stripping the Buffer subclass.
+    const uint8 = Uint8Array.from(pdfBuffer);
     const { text } = await extractText(uint8, { mergePages: true });
     return { text: text || '' };
   } catch (err) {
