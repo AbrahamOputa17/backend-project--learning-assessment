@@ -146,10 +146,16 @@ class LearningService {
     if (!module) throw new AppError('Module not found in course outline', 404);
 
     // 3. Generate via AI
-    const pdfPath = path.join(__dirname, '../../public', course.pdf_url);
-    if (!fs.existsSync(pdfPath)) throw new AppError('Course PDF file is missing on the server. Please contact your instructor.', 404);
+    let buffer;
+    if (course.pdf_url.startsWith('data:application/pdf;base64,')) {
+      const base64Data = course.pdf_url.substring('data:application/pdf;base64,'.length);
+      buffer = Buffer.from(base64Data, 'base64');
+    } else {
+      const pdfPath = path.join(__dirname, '../../public', course.pdf_url);
+      if (!fs.existsSync(pdfPath)) throw new AppError('Course PDF file is missing on the server. Please contact your instructor.', 404);
+      buffer = fs.readFileSync(pdfPath);
+    }
     
-    const buffer = fs.readFileSync(pdfPath);
     const content = await PdfMcqService.generateFullLecture(buffer, module.moduleTitle, JSON.stringify(module.lessons));
 
     // 4. Save to DB cache

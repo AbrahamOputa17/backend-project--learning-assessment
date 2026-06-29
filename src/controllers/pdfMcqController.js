@@ -22,18 +22,10 @@ const PdfMcqController = {
       
       const outline = await PdfMcqService.generateCourseOutline(req.file.buffer);
       
-      // Save file for later lesson generation
-      const fs = require('fs');
-      const path = require('path');
-      const fileName = `course_${Date.now()}.pdf`;
-      const uploadDir = path.join(__dirname, '../../public/uploads/courses');
-      
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      
-      fs.writeFileSync(path.join(uploadDir, fileName), req.file.buffer);
-      const pdfUrl = `/uploads/courses/${fileName}`;
+      // Instead of writing to the read-only local filesystem on Vercel,
+      // represent the PDF as a base64 Data URL which fits completely in a postgreSQL TEXT field.
+      const base64Pdf = req.file.buffer.toString('base64');
+      const pdfUrl = `data:application/pdf;base64,${base64Pdf}`;
 
       res.json({ status: 'success', data: { outline, pdfUrl } });
     } catch (err) {
