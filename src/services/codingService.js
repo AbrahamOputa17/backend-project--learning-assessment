@@ -252,7 +252,7 @@ const CodingService = {
         if (config.google.apiKey) {
            const genAI = new GoogleGenerativeAI(config.google.apiKey);
            const model = genAI.getGenerativeModel({ 
-             model: 'gemini-1.5-flash',
+             model: 'gemini-2.0-flash',
              safetySettings: [
                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
