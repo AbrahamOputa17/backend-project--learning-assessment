@@ -323,7 +323,7 @@ const QuizService = {
     const excerpt = text.length > charLimit ? text.slice(0, charLimit) + '\n...' : text;
     
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
     const prompt = `You are a quiz-question generator. Given educational content, produce exactly 15 multiple-choice quiz questions. 
 Return ONLY a valid JSON object with a single key "questions" whose value is an array. 
 Each element must have: "questionText" (string), "options" (array of 4 objects each with "optionText" (string) and "isCorrect" (boolean, exactly one true per question)), "points" (number, default 1).
