@@ -11,11 +11,25 @@ const AppError = require('../utils/AppError');
 async function extractPdfText(pdfBuffer) {
   try {
     const { extractText } = await import('unpdf');
-    // Buffer subclasses Uint8Array, but unpdf requires a plain Uint8Array.
-    // Uint8Array.from() creates a true Uint8Array copy, stripping the Buffer subclass.
+
+    // pdf.js (used internally by unpdf) requires data wrapped in { data: Uint8Array }.
+    // Buffer subclasses Uint8Array so we strip it with Uint8Array.from() first.
     const uint8 = Uint8Array.from(pdfBuffer);
-    const { text } = await extractText(uint8, { mergePages: true });
-    return { text: text || '' };
+
+    const result = await extractText({ data: uint8 }, { mergePages: true });
+
+    // When mergePages:true the result.text is a single string.
+    // Guard against it being an array (some builds ignore the option).
+    let text;
+    if (typeof result.text === 'string') {
+      text = result.text;
+    } else if (Array.isArray(result.text)) {
+      text = result.text.join('\n');
+    } else {
+      text = '';
+    }
+
+    return { text };
   } catch (err) {
     throw new AppError(`PDF text extraction failed: ${err.message}`, 500);
   }
