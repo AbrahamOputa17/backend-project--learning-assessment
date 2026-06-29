@@ -10,16 +10,18 @@ const AppError = require('../utils/AppError');
  */
 async function extractPdfText(pdfBuffer) {
   try {
-    const { extractText } = await import('unpdf');
+    const { getDocumentProxy, extractText } = await import('unpdf');
 
-    // pdf.js (used internally by unpdf) requires data wrapped in { data: Uint8Array }.
-    // Buffer subclasses Uint8Array so we strip it with Uint8Array.from() first.
-    const uint8 = Uint8Array.from(pdfBuffer);
+    // Step 1: Let getDocumentProxy normalise the binary data.
+    // It applies Node.js-specific defaults (disableFontFace, standardFontDataUrl, etc.)
+    // and accepts any TypedArray / ArrayBuffer — it handles Buffer correctly internally.
+    const pdf = await getDocumentProxy(new Uint8Array(pdfBuffer));
 
-    const result = await extractText({ data: uint8 }, { mergePages: true });
+    // Step 2: Pass the already-resolved PDFDocumentProxy to extractText.
+    // This skips the raw-data type-validation that was failing.
+    const result = await extractText(pdf, { mergePages: true });
 
-    // When mergePages:true the result.text is a single string.
-    // Guard against it being an array (some builds ignore the option).
+    // mergePages:true returns text as a single string; guard against array just in case.
     let text;
     if (typeof result.text === 'string') {
       text = result.text;
