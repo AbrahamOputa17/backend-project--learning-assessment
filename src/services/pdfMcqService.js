@@ -3,52 +3,20 @@ const config = require('../config');
 const AppError = require('../utils/AppError');
 
 /**
- * Resolve pdf-parse regardless of whether it ships as CJS or ESM.
+ * Extract text from a PDF buffer using unpdf.
+ * unpdf has zero native dependencies and works in Vercel serverless.
+ * Returns an object shaped like { text: string } to stay compatible
+ * with the old pdf-parse interface used throughout this file.
  */
-async function getPdfParser() {
+async function extractPdfText(pdfBuffer) {
   try {
-    const mod = require('pdf-parse');
-    if (typeof mod === 'function') return mod;
-    if (mod && typeof mod.PDFParse === 'function') {
-      return async (buffer) => {
-        const instance = new mod.PDFParse(new Uint8Array(buffer));
-        const res = await instance.getText();
-        let text = '';
-        if (typeof res === 'string') {
-          text = res;
-        } else if (res && typeof res.text === 'string') {
-          text = res.text;
-        } else if (res && typeof res === 'object') {
-          text = Object.values(res).filter(v => typeof v === 'string').join('\n');
-        }
-        return { text };
-      };
-    }
-    if (mod && typeof mod.default === 'function') return mod.default;
-  } catch { /* fall through */ }
-
-  try {
-    const mod = await import('pdf-parse');
-    if (typeof mod.default === 'function') return mod.default;
-    if (typeof mod.PDFParse === 'function') {
-      return async (buffer) => {
-        const instance = new mod.PDFParse(new Uint8Array(buffer));
-        const res = await instance.getText();
-        let text = '';
-        if (typeof res === 'string') {
-          text = res;
-        } else if (res && typeof res.text === 'string') {
-          text = res.text;
-        } else if (res && typeof res === 'object') {
-          text = Object.values(res).filter(v => typeof v === 'string').join('\n');
-        }
-        return { text };
-      };
-    }
-    if (typeof mod === 'function') return mod;
-  } catch { /* fall through */ }
-
-  throw new AppError('PDF parsing library failed to load. Please restart the server.', 500);
+    const { extractText } = await import('unpdf');
+    const uint8 = pdfBuffer instanceof Uint8Array ? pdfBuffer : new Uint8Array(pdfBuffer);
+    const { text } = await extractText(uint8, { mergePages: true });
+    return { text: text || '' };
+  } catch (err) {
+    throw new AppError(`PDF text extraction failed: ${err.message}`, 500);
+  }
 }
 
 const PdfMcqService = {
@@ -87,8 +55,7 @@ const PdfMcqService = {
     if (!config.google.apiKey) throw new AppError('AI missing API key', 503);
 
     const count = Math.min(Math.max(Math.floor(questionCount), 1), 30);
-    const pdfParse = await getPdfParser();
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await extractPdfText(pdfBuffer);
     const rawText = pdfData.text?.trim();
     if (!rawText) throw new AppError('Could not extract text from PDF', 422);
 
@@ -97,7 +64,7 @@ const PdfMcqService = {
 
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash-latest',
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -152,8 +119,7 @@ ${excerpt}`;
   async generateCourseOutline(pdfBuffer) {
     if (!config.google.apiKey) throw new AppError('AI missing API key', 503);
 
-    const pdfParse = await getPdfParser();
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await extractPdfText(pdfBuffer);
     const rawText = pdfData.text?.trim();
     if (!rawText) throw new AppError('Could not read PDF content', 422);
 
@@ -161,7 +127,7 @@ ${excerpt}`;
 
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash-latest',
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -191,10 +157,7 @@ ${excerpt}`;
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    // Diagnostic logging
-    const fs = require('fs');
-    const logMsg = `\n--- OUTLINE DEBUG ${new Date().toISOString()} ---\nRAW RESPONSE:\n${responseText}\n-----------------------\n`;
-    fs.appendFileSync('ai_debug.log', logMsg);
+    // (debug logging removed — fs.appendFileSync is not available in Vercel serverless)
 
     const parsed = this._extractJson(responseText);
 
@@ -214,7 +177,7 @@ ${excerpt}`;
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash-latest',
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -270,8 +233,7 @@ Return ONLY the JSON.`;
   async generateFullLecture(pdfBuffer, moduleTitle, moduleSummary) {
     if (!config.google.apiKey) throw new AppError('AI missing API key', 503);
 
-    const pdfParse = await getPdfParser();
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await extractPdfText(pdfBuffer);
     const rawText = pdfData.text?.trim() || '';
     
     // Use a larger context for lectures
@@ -279,7 +241,7 @@ Return ONLY the JSON.`;
 
     const genAI = new GoogleGenerativeAI(config.google.apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash-latest',
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
