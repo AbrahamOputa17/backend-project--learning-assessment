@@ -5,54 +5,29 @@ const config = require('../config');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
- * Resolve pdf-parse regardless of whether it ships as CJS or ESM.
+ * Extract text from a PDF buffer using unpdf.
+ * unpdf has zero native dependencies and works in Vercel serverless.
+ * Returns an object shaped like { text: string } to stay compatible.
  */
-async function getPdfParser() {
+async function extractPdfText(pdfBuffer) {
   try {
-    const mod = require('pdf-parse');
-    if (typeof mod === 'function') return mod;
-    if (mod && typeof mod.PDFParse === 'function') {
-      return async (buffer) => {
-        const instance = new mod.PDFParse(new Uint8Array(buffer));
-        const res = await instance.getText();
-        // Robust extraction: result could be string, or object with .text, or even an array of strings
-        let text = '';
-        if (typeof res === 'string') {
-          text = res;
-        } else if (res && typeof res.text === 'string') {
-          text = res.text;
-        } else if (res && typeof res === 'object') {
-          // Fallback: join all string values found in the object
-          text = Object.values(res).filter(v => typeof v === 'string').join('\n');
-        }
-        return { text };
-      };
+    const { getDocumentProxy, extractText } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(pdfBuffer));
+    const result = await extractText(pdf, { mergePages: true });
+
+    let text;
+    if (typeof result.text === 'string') {
+      text = result.text;
+    } else if (Array.isArray(result.text)) {
+      text = result.text.join('\n');
+    } else {
+      text = '';
     }
-    if (mod && typeof mod.default === 'function') return mod.default;
-  } catch { /* fall through */ }
-  try {
-    const mod = await import('pdf-parse');
-    if (typeof mod.default === 'function') return mod.default;
-    if (typeof mod.PDFParse === 'function') {
-      return async (buffer) => {
-        const instance = new mod.PDFParse(new Uint8Array(buffer));
-        const res = await instance.getText();
-        // Robust extraction: result could be string, or object with .text, or even an array of strings
-        let text = '';
-        if (typeof res === 'string') {
-          text = res;
-        } else if (res && typeof res.text === 'string') {
-          text = res.text;
-        } else if (res && typeof res === 'object') {
-          // Fallback: join all string values found in the object
-          text = Object.values(res).filter(v => typeof v === 'string').join('\n');
-        }
-        return { text };
-      };
-    }
-    if (typeof mod === 'function') return mod;
-  } catch { /* fall through */ }
-  throw new AppError('PDF parsing library failed to load.', 500);
+
+    return { text };
+  } catch (err) {
+    throw new AppError(`PDF text extraction failed: ${err.message}`, 500);
+  }
 }
 const QuizService = {
   async getQuizzesByCourse(courseId, user) {
@@ -313,8 +288,7 @@ const QuizService = {
       throw new AppError('AI question generation is not configured (missing GOOGLE_API_KEY)', 503);
     }
     // Extract text from PDF
-    const pdfParse = await getPdfParser();
-    const pdfData = await pdfParse(pdfBuffer);
+    const pdfData = await extractPdfText(pdfBuffer);
     const text = pdfData.text.trim();
     if (!text) throw new AppError('Could not extract text from the uploaded PDF', 422);
 
