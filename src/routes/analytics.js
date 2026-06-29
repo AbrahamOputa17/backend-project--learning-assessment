@@ -28,4 +28,10 @@ router.get('/courses/:courseId/student-pass-failure-stats', analyticsController.
 // Report to HOD
 router.post('/courses/:courseId/report-to-hod', authorize('instructor'), analyticsController.reportToHOD);
 
+// ── HOD Department-Wide Analytics ────────────────────────────────────────────
+router.get('/department/overview', authorize('hod', 'admin'), analyticsController.getDepartmentOverview);
+router.get('/department/instructor-performance', authorize('hod', 'admin'), analyticsController.getInstructorPerformance);
+router.get('/department/score-trend', authorize('hod', 'admin'), analyticsController.getDepartmentScoreTrend);
+router.post('/department/ai-summary', authorize('hod', 'admin'), analyticsController.getDepartmentAISummary);
+
 module.exports = router;

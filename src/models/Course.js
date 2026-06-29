@@ -4,7 +4,7 @@ const CourseModel = {
   /**
    * Get all published courses with instructor info.
    */
-  async findAll({ limit = 20, offset = 0, category, level } = {}) {
+  async findAll({ limit = 20, offset = 0, category, difficulty } = {}) {
     const conditions = ['c.is_published = TRUE'];
     const values = [];
     let idx = 1;
@@ -13,9 +13,9 @@ const CourseModel = {
       conditions.push(`c.category = $${idx++}`);
       values.push(category);
     }
-    if (level) {
-      conditions.push(`c.level = $${idx++}`);
-      values.push(level);
+    if (difficulty) {
+      conditions.push(`c.difficulty = $${idx++}`);
+      values.push(difficulty);
     }
 
     values.push(limit, offset);
@@ -55,7 +55,10 @@ const CourseModel = {
       `SELECT c.*, u.name AS instructor_name
        FROM courses c
        JOIN users u ON u.id = c.instructor_id
-       WHERE u.department = (SELECT department FROM users WHERE id = $1)
+       WHERE EXISTS (
+         SELECT 1 FROM unnest(string_to_array(u.department, ',')) dep
+         WHERE trim(dep) = (SELECT department FROM users WHERE id = $1)
+       )
        ORDER BY c.created_at DESC`,
       [hodId]
     );
@@ -70,7 +73,10 @@ const CourseModel = {
       `SELECT c.id 
        FROM courses c
        JOIN users u ON u.id = c.instructor_id
-       WHERE c.id = $1 AND u.department = (SELECT department FROM users WHERE id = $2)`,
+       WHERE c.id = $1 AND EXISTS (
+         SELECT 1 FROM unnest(string_to_array(u.department, ',')) dep
+         WHERE trim(dep) = (SELECT department FROM users WHERE id = $2)
+       )`,
       [courseId, hodId]
     );
     return result.rows.length > 0;
@@ -93,12 +99,12 @@ const CourseModel = {
   /**
    * Create a new course.
    */
-  async create({ title, description, instructorId, category, level, outline = null, pdf_url = null }) {
+  async create({ title, description, instructorId, category, difficulty, outline = null, pdf_url = null }) {
     const result = await query(
-      `INSERT INTO courses (title, description, instructor_id, category, level, outline, pdf_url)
+      `INSERT INTO courses (title, description, instructor_id, category, difficulty, outline, pdf_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [title, description, instructorId, category, level, JSON.stringify(outline), pdf_url]
+      [title, description, instructorId, category || null, difficulty || 'beginner', outline ? JSON.stringify(outline) : null, pdf_url]
     );
     return result.rows[0];
   },
@@ -107,7 +113,7 @@ const CourseModel = {
    * Update a course.
    */
   async update(id, fields) {
-    const allowed = ['title', 'description', 'category', 'level', 'is_published', 'outline', 'pdf_url'];
+    const allowed = ['title', 'description', 'category', 'difficulty', 'is_published', 'outline', 'pdf_url'];
     const updates = [];
     const values = [];
     let idx = 1;

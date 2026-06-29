@@ -73,7 +73,10 @@ const UserModel = {
       `SELECT id, name, email, avatar 
        FROM users 
        WHERE role = 'instructor' 
-       AND department = (SELECT department FROM users WHERE id = $1)`,
+       AND EXISTS (
+         SELECT 1 FROM unnest(string_to_array(department, ',')) dep
+         WHERE trim(dep) = (SELECT department FROM users WHERE id = $1)
+       )`,
       [hodId]
     );
     return result.rows;

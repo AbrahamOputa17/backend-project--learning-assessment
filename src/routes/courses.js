@@ -25,10 +25,10 @@ router.post(
   authorize('instructor', 'admin'),
   [
     body('title').trim().notEmpty().withMessage('Title is required'),
-    body('level')
+    body('difficulty')
       .optional()
-      .isIn(['100', '200', '300', '400'])
-      .withMessage('Invalid level'),
+      .isIn(['beginner', 'intermediate', 'advanced'])
+      .withMessage('Invalid difficulty level'),
   ],
   validate,
   CourseController.createCourse
